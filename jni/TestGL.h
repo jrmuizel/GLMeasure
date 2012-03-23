@@ -11,6 +11,15 @@
 #define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "gl-measure", __VA_ARGS__))
 #define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "gl-measure", __VA_ARGS__))
 
+#define CHECK_GLERROR() check_gl_error(__FILE__, __LINE__)
+static inline void check_gl_error(const char *file, int line)
+{
+        glFinish();
+        GLenum error = glGetError();
+        if (error != GL_NO_ERROR) {
+           LOGW("GL error(%x): %s:%d",error, file, line);
+        }
+}
 
 // A single GL test to run. Handles glFinish-ing before and after the
 // test. The idea is that this test will be run multipe times by
@@ -50,7 +59,7 @@ protected:
   GLsizei mTextureSize;
   GLint mAlignment;
   GLuint* mTextureID;
-  static const unsigned int mNumTextures = 2;
+  static const unsigned int mNumTextures = 1;
   unsigned int mPixelSize;
   unsigned char* mBuffer;
   unsigned int mTimesTested;

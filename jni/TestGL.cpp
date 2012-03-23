@@ -1,6 +1,7 @@
 #include <TestGL.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <android/log.h>
 
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 unsigned int PixelSizeToBytes(TestGL::PixelSize aSize)
@@ -80,14 +81,24 @@ Duration TestGLRunner::Run(int aNumIterations)
   }
   glFinish();
   Time endTime = Time::Now();
+  LOGW("GLRunner::Run");
   return endTime - startTime;
+}
+
+unsigned char *allocateBuffer(size_t size)
+{
+  unsigned char *buf = new unsigned char[size];
+  for (int i=0; i<size; i++) {
+    buf[i] = 0xff;
+  }
+  return buf;
 }
 
 TestTexImage2D::TestTexImage2D(PixelSize aSize, GLsizei aTextureSize, GLint aAlignment) :
   TestGL(aSize, aTextureSize, aAlignment)
 {
   // Adding 7 to accomodate possible unpack alignments.
-  mBuffer = new unsigned char[mTextureSize*(mTextureSize*mPixelSize+7)];
+  mBuffer = allocateBuffer(mTextureSize*(mTextureSize*mPixelSize+7));
   for (unsigned int i = 0; i < mNumTextures; i++) {
     glBindTexture(GL_TEXTURE_2D, mTextureID[i]);
     glTexImage2D(GL_TEXTURE_2D, 0, mFormat, mTextureSize, mTextureSize, 0,
@@ -139,7 +150,7 @@ TestTexSubImage2DMemcpy::TestTexSubImage2DMemcpy(PixelSize aSize, GLsizei aTextu
 void TestTexSubImage2DMemcpy::Test()
 {
   // Adding 7 to accomodate possible unpack alignments.
-  unsigned char* tempBuffer = new unsigned char[mTextureSize*(mTextureSize*mPixelSize+7)];
+  unsigned char* tempBuffer = allocateBuffer(mTextureSize*(mTextureSize*mPixelSize+7));
   // We're not taking alignment into account when copying, but our main goal is just
   // to get the right time for copying, not necessarily to copy the right content.
   for (int i = 0; i < mTextureSize; i++) {
@@ -190,7 +201,7 @@ TestUnpackRowLength::TestUnpackRowLength(PixelSize aSize, GLsizei aTextureSize, 
                                          mUploadWidth(aUploadWidth),
                                          mOffset(aOffset)
 {
-  mBuffer = new unsigned char[2*mTextureSize*(mTextureSize*mPixelSize+7)];
+  mBuffer = allocateBuffer(2*mTextureSize*(mTextureSize*mPixelSize+7));
   glBindTexture(GL_TEXTURE_2D, mTextureID[mTimesTested % mNumTextures]);
   glTexImage2D(GL_TEXTURE_2D, 0, mFormat, mTextureSize, mTextureSize, 0,
                mFormat, mType, mBuffer);

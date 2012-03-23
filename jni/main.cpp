@@ -50,8 +50,9 @@ GLuint LoadShader(GLenum type, const char *shaderSrc) {
     {
       char* infoLog = (char*)malloc(sizeof(char) * infoLen);
       glGetShaderInfoLog(shader, infoLen, NULL, infoLog);
+      LOGW("Error compiling shader: %s", infoLog);
       //esLogMessage("Error compiling shader:\n%s\n", infoLog);
-      //free(infoLog);
+      free(infoLog);
     }
     glDeleteShader(shader);
     return 0;
@@ -144,15 +145,24 @@ static int engine_init_display(struct engine* engine) {
 
     const char vShaderStr[] =
         "attribute vec4 vPosition; \n"
+        "attribute vec2 vTexCoord; \n"
+        "varying vec2 v_texCoord; \n"
         "void main() \n"
         "{ \n"
+        " v_texCoord = vTexCoord;\n"
         " gl_Position = vPosition; \n"
         "}";
 
     const char fShaderStr[] =
         "precision mediump float; \n"
+        "varying vec2 v_texCoord; \n"
+        "uniform sampler2D sampler2d;\n"
         "void main() { \n"
-        " gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
+        " gl_FragColor = texture2D(sampler2d, v_texCoord);\n"
+        //"gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
+        //" gl_FragColor.gb = vec2(0.0,0.0);\n"
+        " gl_FragColor.a = 1.0;\n"
+        " gl_FragColor.g = 1.0;\n"
         "}";
 
     GLuint vertexShader;
@@ -161,21 +171,34 @@ static int engine_init_display(struct engine* engine) {
     GLint linked;
 
     vertexShader = LoadShader(GL_VERTEX_SHADER, vShaderStr);
+    CHECK_GLERROR();
     fragmentShader = LoadShader(GL_FRAGMENT_SHADER, fShaderStr);
+    CHECK_GLERROR();
 
     programObject = glCreateProgram();
+    CHECK_GLERROR();
     glAttachShader(programObject, vertexShader);
+    CHECK_GLERROR();
     glAttachShader(programObject, fragmentShader);
+    CHECK_GLERROR();
     glBindAttribLocation(programObject, 0, "vPosition");
+    CHECK_GLERROR();
     glBindAttribLocation(programObject, 1, "vTexcoord");
+    CHECK_GLERROR();
     glLinkProgram(programObject);
     glGetProgramiv(programObject, GL_LINK_STATUS, &linked);
+    CHECK_GLERROR();
     if(!linked) abort();
-
     glUseProgram(programObject);
+    CHECK_GLERROR();
+     GLint location = glGetUniformLocation(programObject, "sampler2D");
+    CHECK_GLERROR();
+    glUniform1i(location, 0);
+    CHECK_GLERROR();
 
     return 0;
 }
+
 
 /**
  * Just the current frame in the display.
@@ -190,19 +213,30 @@ static void engine_draw_frame(struct engine* engine) {
     a = !a;
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport ( 0, 0, 100, 100 );
+    CHECK_GLERROR();
 
     GLfloat vVertices[] = {0.0f, 0.5f, 0.0f, -0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f};
     GLfloat texCoords[] = {1.0f, 1.0f, 0.0f,  1.0f, 0.0f, 0.0f, 1.0f, 0.0f};
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, vVertices);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, texCoords);
+    CHECK_GLERROR();
     glEnableVertexAttribArray(0);
+    CHECK_GLERROR();
     //glEnableClientState(GL_VERTEX_ARRAY);
     //glTexCoordPointer(8, GL_FLOAT, 0, texCoords);
 
-    glEnable (GL_TEXTURE_2D);
-
-
     RunGLMeasure();
+    CHECK_GLERROR();
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) {
+       if (error == GL_INVALID_OPERATION) {
+         LOGW("GL ERROR: GL_INVALID_OPERATION");
+       } else if (error == GL_INVALID_ENUM) {
+         LOGW("GL ERROR: GL_INVALID_ENUM");
+       } else {
+         LOGW("GL ERROR: %x\n", error);
+       }
+    }
     eglSwapBuffers(engine->display, engine->surface);
 }
 
@@ -210,6 +244,7 @@ static void engine_draw_frame(struct engine* engine) {
  * Tear down the EGL context currently associated with the display.
  */
 static void engine_term_display(struct engine* engine) {
+    LOGW("Destroy");
     if (engine->display != EGL_NO_DISPLAY) {
         eglMakeCurrent(engine->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         if (engine->context != EGL_NO_CONTEXT) {
@@ -220,7 +255,7 @@ static void engine_term_display(struct engine* engine) {
         }
         eglTerminate(engine->display);
     }
-    engine->animating = 0;
+    engine->animating = 1;
     engine->display = EGL_NO_DISPLAY;
     engine->context = EGL_NO_CONTEXT;
     engine->surface = EGL_NO_SURFACE;
