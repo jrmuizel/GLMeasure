@@ -174,6 +174,23 @@ static int engine_init_display(struct engine* engine) {
 
     glUseProgram(programObject);
 
+    return 0;
+}
+
+/**
+ * Just the current frame in the display.
+ */
+double a = 1;
+static void engine_draw_frame(struct engine* engine) {
+    if (engine->display == NULL) {
+        // No display.
+        return;
+    }
+    glClearColor(1,1,a,1);
+    a = !a;
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glViewport ( 0, 0, 100, 100 );
+
     GLfloat vVertices[] = {0.0f, 0.5f, 0.0f, -0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f};
     GLfloat texCoords[] = {1.0f, 1.0f, 0.0f,  1.0f, 0.0f, 0.0f, 1.0f, 0.0f};
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, vVertices);
@@ -184,20 +201,6 @@ static int engine_init_display(struct engine* engine) {
 
     glEnable (GL_TEXTURE_2D);
 
-    return 0;
-}
-
-/**
- * Just the current frame in the display.
- */
-static void engine_draw_frame(struct engine* engine) {
-    if (engine->display == NULL) {
-        // No display.
-        return;
-    }
-    glClearColor(1,1,1,1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glViewport ( 0, 0, 100, 100 );
 
     RunGLMeasure();
     eglSwapBuffers(engine->display, engine->surface);
@@ -234,6 +237,7 @@ static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
             if (engine->app->window != NULL) {
                 engine_init_display(engine);
                 engine_draw_frame(engine);
+                engine->animating = 1;
  //               engine->app->destroyRequested = 1;
             }
             break;
@@ -289,6 +293,10 @@ void android_main(struct android_app* state) {
                 engine_term_display(&engine);
                 ANativeActivity_finish(state->activity);
                 exit(0);
+            }
+
+            if (engine.animating) {
+                engine_draw_frame(&engine);
             }
         }
 
